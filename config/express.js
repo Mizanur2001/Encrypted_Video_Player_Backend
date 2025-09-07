@@ -9,8 +9,9 @@ events.EventEmitter.defaultMaxListeners = 20
 
 const app = express()
 
-//Middlewares
+// parse JSON and urlencoded bodies (must run before route handlers)
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
 
 
 //Enable Cors
