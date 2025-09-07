@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server is Running</title>
+    <link rel="icon" type="image/png" href="images/logo.png">
+    <!-- Google Font: Hanken Grotesk -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root{
+            --bg-1: #0f1724;
+            --bg-2: #0b2545;
+            --accent: #7C5CFF;
+            --muted: #9aa4b2;
+            --card-bg: rgba(255,255,255,0.06);
+        }
+
+        /* Reset + base */
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Hanken Grotesk', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            background: radial-gradient(1200px 600px at 10% 10%, rgba(124,92,255,0.12), transparent 10%),
+                        radial-gradient(900px 500px at 90% 90%, rgba(3,201,169,0.06), transparent 10%),
+                        linear-gradient(180deg, var(--bg-1), var(--bg-2));
+            color: #e6eef8;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            min-height:100vh;
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+            padding:32px;
+        }
+
+        /* Card */
+        .card {
+            width:100%;
+            max-width:980px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            border-radius:16px;
+            padding:28px;
+            box-shadow: 0 10px 30px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+            display:flex;
+            gap:28px;
+            align-items:center;
+            position:relative;
+            overflow:hidden;
+            border:1px solid rgba(255,255,255,0.04);
+            backdrop-filter: blur(6px);
+            transform:translateY(0);
+            animation: lift 700ms cubic-bezier(.2,.9,.3,1);
+        }
+
+        @keyframes lift {
+            from { transform: translateY(10px); opacity: 0; }
+            to   { transform: translateY(0);  opacity: 1; }
+        }
+
+        /* Left: imagery */
+        .visual {
+            flex:1 1 420px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:8px;
+        }
+
+        .visual .illustration {
+            width:420px;
+            max-width:100%;
+            border-radius:12px;
+            box-shadow: 0 12px 30px rgba(2,6,23,0.5);
+            transform: translateY(0);
+            transition: transform .6s cubic-bezier(.2,.9,.3,1);
+        }
+
+        .card:hover .visual .illustration {
+            transform: translateY(-6px) rotate(-0.5deg);
+        }
+
+        /* Right: content */
+        .content {
+            flex:0 0 380px;
+            color: #eaf3ff;
+        }
+
+        .brand {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            margin-bottom:12px;
+        }
+
+        .logo {
+            width:56px;
+            height:56px;
+            border-radius:10px;
+            background: linear-gradient(135deg,var(--accent), #04d2b6);
+            padding:8px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            box-shadow: 0 6px 18px rgba(124,92,255,0.18);
+        }
+
+        .logo img{width:36px;height:36px;display:block}
+
+        .tagline {
+            margin:0;
+            font-size:13px;
+            color:var(--muted);
+        }
+
+        h1 {
+            font-size:28px;
+            margin:8px 0 6px;
+            color:#fff;
+            letter-spacing:-0.2px;
+        }
+
+        .description {
+            color: #cbd8ea;
+            margin:0 0 18px;
+            line-height:1.45;
+        }
+
+        .actions {
+            display:flex;
+            gap:12px;
+            align-items:center;
+            margin-top:8px;
+        }
+
+        .btn {
+            appearance:none;
+            border:0;
+            cursor:pointer;
+            padding:10px 16px;
+            font-weight:600;
+            border-radius:10px;
+            color:#071028;
+            background:linear-gradient(90deg,var(--accent), #04d2b6);
+            box-shadow: 0 8px 20px rgba(124,92,255,0.14);
+        }
+
+        .btn.secondary {
+            background:transparent;
+            color:var(--muted);
+            border:1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(4px);
+        }
+
+        .small {
+            font-size:13px;
+            color:var(--muted);
+            margin-top:14px;
+        }
+
+        /* Decorative corner shapes */
+        .corner {
+            position:absolute;
+            width:220px;
+            height:220px;
+            right:-60px;
+            top:-60px;
+            filter:blur(30px);
+            opacity:0.12;
+            background: conic-gradient(from 120deg at 50% 50%, rgba(124,92,255,0.9), rgba(4,210,182,0.8));
+            transform: rotate(25deg);
+            pointer-events:none;
+        }
+
+        .corner.bottom {
+            left:-80px;
+            bottom:-70px;
+            top:auto;
+            right:auto;
+            transform: rotate(-8deg);
+            opacity:0.08;
+        }
+
+        /* Footer note */
+        .foot {
+            margin-top:18px;
+            font-size:12px;
+            color:var(--muted);
+            display:flex;
+            gap:10px;
+            align-items:center;
+        }
+
+        .dot {
+            width:8px;height:8px;border-radius:50%;
+            background:#44f2b2;box-shadow:0 4px 14px rgba(68,242,178,0.14);
+        }
+
+        /* Responsive */
+        @media (max-width:880px){
+            .card{flex-direction:column; padding:20px; gap:18px}
+            .content{flex-basis:100%; text-align:center}
+            .visual{order:0}
+        }
+
+        @media (prefers-reduced-motion: reduce){
+            .card, .visual .illustration { animation: none; transition: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card" role="status" aria-live="polite">
+        <div class="corner" aria-hidden="true"></div>
+        <div class="corner bottom" aria-hidden="true"></div>
+
+        <div class="visual">
+            <img src="/images/server-running.png" alt="Server Illustration" class="illustration">
+        </div>
+
+        <div class="content">
+            <div class="brand">
+                <div class="logo" aria-hidden="true">
+                    <img src="/images/logo.png" alt="logo">
+                </div>
+                <div>
+                    <p class="tagline">Together for a Sustainable Future</p>
+                    <h1>Server is Running</h1>
+                </div>
+            </div>
+
+            <p class="description">
+                Your backend is up and serving content. Everything is connected securely and performing normally.
+                Open your app or visit the API endpoints to continue development.
+            </p>
+
+            <div class="actions">
+                <button class="btn" onclick="openApp()">Open App</button>
+                <button class="btn secondary" onclick="openDocs()">View Docs</button>
+            </div>
+
+            <div class="foot">
+                <span class="dot" aria-hidden="true"></span>
+                <span>Uptime: <strong id="uptime">calculating...</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // lightweight interactions
+        function openApp(){ window.location.href = 'https://video.mizanur.in'; }
+        function openDocs(){ window.open('/docs', '_blank'); }
+
+        // show approximate uptime since server start (persists across refresh)
+        (function(){
+            const el = document.getElementById('uptime');
+            if(!el) return;
+
+            // fallback to local if server endpoint fails
+            let start = Date.now();
+
+            function fmt(ms){
+                const s = Math.floor(ms/1000);
+                if(s < 60) return s + 's';
+                const m = Math.floor(s/60);
+                if(m < 60) return m + 'm ' + (s%60) + 's';
+                const h = Math.floor(m/60);
+                return h + 'h ' + (m%60) + 'm';
+            }
+
+            // try to get server start time
+            fetch('/uptime').then(r => r.ok ? r.json() : Promise.reject())
+            .then(data => {
+                if(data && data.startedAt){
+                    start = new Date(data.startedAt).getTime();
+                    el.textContent = fmt(Date.now() - start);
+                }
+            }).catch(() => {
+                // keep client-side start if fetch fails
+                start = Date.now();
+                el.textContent = fmt(0);
+            });
+
+            // update every second
+            setInterval(()=> el.textContent = fmt(Date.now() - start), 1000);
+        })();
+    </script>
+</body>
+
+</html>
