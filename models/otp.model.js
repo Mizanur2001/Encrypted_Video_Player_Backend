@@ -2,11 +2,10 @@ const mongoose = require("mongoose");
 
 const otpSchema = new mongoose.Schema(
     {
-        phone: { type: String, trim: true },
         email: { type: String, trim: true, required: true },
         otp: { type: Number, require: true },
-        createdAt: { type: Date, default: Date.now, expires: '10m' },
-        type: { type: String, trim: true, enum: ["Registration", "forgetPass", "DistributorRegistration"], }
+        createdAt: { type: Date, default: Date.now, expires: '3m' },
+        type: { type: String, trim: true, enum: ["Registration", "forgetPass", "Login"], }
     },
     { timestamps: true }
 );

@@ -1,7 +1,9 @@
 const { HandleServerError, HandleSuccess, HandleError, PasswordStrength, HashPasswords } = require('./Base.controller')
 const models = require("../models")
+const bcrypt = require('bcrypt');
 const User = models.User
 const Otp = models.Otp
+const mailService = require('../services').Mail
 
 
 module.exports = {
@@ -28,7 +30,7 @@ module.exports = {
 
             //Hash password
             const hashedPassword = await HashPasswords(password.trim())
-          
+
             //Create new user
             const newUser = new User({
                 name: name.trim(),
@@ -47,7 +49,43 @@ module.exports = {
     },
     Login: async (req, res) => {
         try {
-            HandleSuccess(res, "Hello", "Success")
+            const { email, password } = req.body || {}
+
+            if (!email || !password) {
+                return HandleError(res, "All fields are required")
+            }
+
+            //check if user already exists
+            const findUser = await User.findOne({ email: email.toLowerCase().trim() })
+            if (!findUser) {
+                return HandleError(res, "Invalid Credentials.")
+            }
+
+            //Match password
+            const matchPassword = await bcrypt.compare(password.trim(), findUser.password)
+            if (!matchPassword) {
+                return HandleError(res, "Invalid Credentials.")
+            }
+
+            //Send OTP for 2FA verification
+            // Create a unique otp
+            const otpValue = Math.floor(1000 + Math.random() * 9000);
+            const otpData = new Otp({
+                email: findUser.email,
+                otp: otpValue,
+                type: "Login"
+            })
+            otpData.save().then(async (otp) => {
+                //Send otp to user email
+                const mailSent = await mailService.sendOtp(findUser.email, findUser.name, otpValue)
+                if (mailSent) {
+                    HandleSuccess(res, "OTP sent successfully to " + findUser.email, "Success")
+                } else {
+                    HandleError(res, "Failed to send OTP.")
+                }
+            }).catch((err) => {
+                return HandleError(res, err)
+            })
         } catch (error) {
             HandleServerError(req, res, error)
         }

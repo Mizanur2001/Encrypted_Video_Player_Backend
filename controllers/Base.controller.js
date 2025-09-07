@@ -293,7 +293,7 @@ const GeneratePassword = (length = 16) => {
 
 
 const HashPasswords = async (password) => {
-    return await bcrypt.hash(password, 10000);
+    return await bcrypt.hash(password, 10);
 };
 
 
