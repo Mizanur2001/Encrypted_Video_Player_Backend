@@ -6,5 +6,6 @@ const Auth = Controllers.Auth;
 router.post("/login", Auth.Login);
 router.post("/register", Auth.Register);
 router.post("/verify-otp", Auth.VerifyOtp);
+router.post("/resend-otp", Auth.ResendOtp);
 
 module.exports = router;

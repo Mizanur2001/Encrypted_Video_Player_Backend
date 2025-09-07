@@ -129,5 +129,13 @@ module.exports = {
         } catch (error) {
             HandleServerError(req, res, error)
         }
+    },
+    ResendOtp: async (req, res) => {
+        try {
+            //:::::::::::::TO DO ::::::::::::::::::::
+            HandleSuccess(res, {}, "Success")
+        } catch (error) {
+            HandleServerError(req, res, error)
+        }
     }
 }
