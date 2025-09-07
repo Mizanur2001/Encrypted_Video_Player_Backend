@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const User = models.User
 const Otp = models.Otp
 const mailService = require('../services').Mail
+const jwt = require('jsonwebtoken');
 
 
 module.exports = {
@@ -86,6 +87,45 @@ module.exports = {
             }).catch((err) => {
                 return HandleError(res, err)
             })
+        } catch (error) {
+            HandleServerError(req, res, error)
+        }
+    },
+    VerifyOtp: async (req, res) => {
+        try {
+            const { email, otp } = req.body || {}
+            if (!email || !otp) {
+                return HandleError(res, "All fields are required")
+            }
+            //check if user already exists
+            const findUserOTP = await Otp.find({ email: email.toLowerCase().trim() })
+
+            if (!findUserOTP || findUserOTP.length === 0) {
+                return HandleError(res, "OTP Expired.")
+            }
+
+            //check all otp and if any otp matches then we will allow user to login
+            let otpMatched = false;
+            findUserOTP.forEach((otpData) => {
+                if (otpData.otp == otp) {
+                    otpMatched = true;
+                }
+            });
+
+            //Check if the User is Admin
+            const findUser = await User.findOne({ email: email.toLowerCase().trim() })
+
+            if (findUser.type !== "admin") {
+                return HandleError(res, "You are not allowed to login.")
+            }
+
+            if (otpMatched) {
+                // Generate JWT token and send to user
+                const token = jwt.sign({ id: findUser._id, email: findUser.email, type: findUser.type }, process.env.JWT_SECRET, { expiresIn: "2h" })
+                HandleSuccess(res, { token }, "Success")
+            } else {
+                HandleError(res, "Invalid OTP.")
+            }
         } catch (error) {
             HandleServerError(req, res, error)
         }
