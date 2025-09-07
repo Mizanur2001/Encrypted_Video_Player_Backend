@@ -69,7 +69,7 @@ module.exports = {
 
             //Send OTP for 2FA verification
             // Create a unique otp
-            const otpValue = Math.floor(1000 + Math.random() * 9000);
+            const otpValue = Math.floor(100000 + Math.random() * 900000);
             const otpData = new Otp({
                 email: findUser.email,
                 otp: otpValue,
