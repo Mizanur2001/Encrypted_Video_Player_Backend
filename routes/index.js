@@ -17,6 +17,7 @@ router.get('/uptime', (req, res) => {
 
 //all other routes
 router.use("/api/v1/auth", require("./auth.route"));
+router.use("/api/v1/video", require("./video.route"));
 
 
 // No router found
