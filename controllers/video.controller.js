@@ -1,7 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { HandleServerError, HandleError } = require("./Base.controller");
+const ffmpeg = require("fluent-ffmpeg");
+const ffprobe = require("ffprobe-static");
+const { HandleServerError, HandleError, HandleSuccess } = require("./Base.controller");
 const VIDEO_DIR = path.join(__dirname, "../private");
 
 // AES Key + IV
@@ -56,6 +58,49 @@ module.exports = {
 
             stream.pipe(cipher).pipe(res);
 
+        } catch (error) {
+            return HandleServerError(req, res, error);
+        }
+    },
+    sendVideoInfo: async (req, res) => {
+        try {
+            const files = fs.readdirSync(VIDEO_DIR).filter(file => {
+                return file.endsWith(".mp4") || file.endsWith(".mkv") || file.endsWith(".mov");
+            });
+
+            let videoInfos = [];
+
+            for (const file of files) {
+                const videoPath = path.join(VIDEO_DIR, file);
+
+                const info = await new Promise((resolve, reject) => {
+                    ffmpeg.ffprobe(videoPath, (err, metadata) => {
+                        if (err) return reject(err);
+
+                        // generate thumbnail
+                        const thumbPath = path.join(__dirname, "../private/thumbnails", `${file}.png`);
+                        ffmpeg(videoPath)
+                            .on("end", () => {
+                                resolve({
+                                    videoPath: file,
+                                    duration: metadata.format.duration.toFixed(2), // seconds
+                                    thumbnail: `/private/thumbnails/${file}.png`,  // public URL if served
+                                });
+                            })
+                            .on("error", reject)
+                            .screenshots({
+                                count: 1,
+                                folder: path.join(__dirname, "../private/thumbnails"),
+                                filename: `${file}.png`,
+                                size: "320x240",
+                            });
+                    });
+                });
+
+                videoInfos.push(info);
+            }
+
+            HandleSuccess(res, { videos: videoInfos }, "Video info retrieved successfully");
         } catch (error) {
             return HandleServerError(req, res, error);
         }
