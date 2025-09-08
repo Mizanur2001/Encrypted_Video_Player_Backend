@@ -132,8 +132,39 @@ module.exports = {
     },
     ResendOtp: async (req, res) => {
         try {
-            //:::::::::::::TO DO ::::::::::::::::::::
-            HandleSuccess(res, {}, "Success")
+            const { email } = req.body || {}
+            if (!email) {
+                return HandleError(res, "Email is required")
+            }
+
+            //check otp exists for the email
+            const findUserOTP = await Otp.find({ email: email.toLowerCase().trim() })
+
+            if (!findUserOTP || findUserOTP.length === 0) {
+                return HandleError(res, "OTP Expired Login again.")
+            }
+
+            //Get user details
+            const findUser = await User.findOne({ email: email.toLowerCase().trim() })
+
+            // Create a new OTP
+            const otpValue = Math.floor(100000 + Math.random() * 900000);
+            const otpData = new Otp({
+                email: email.toLowerCase().trim(),
+                otp: otpValue,
+                type: "Login"
+            })
+            otpData.save().then(async (otp) => {
+                //Send otp to user email
+                const mailSent = await mailService.sendOtp(email, findUser.name, otpValue)
+                if (mailSent) {
+                    HandleSuccess(res, "OTP sent successfully to " + email, "Success")
+                } else {
+                    HandleError(res, "Failed to send OTP.")
+                }
+            }).catch((err) => {
+                return HandleError(res, err)
+            })
         } catch (error) {
             HandleServerError(req, res, error)
         }
