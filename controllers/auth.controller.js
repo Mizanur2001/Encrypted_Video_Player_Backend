@@ -93,8 +93,8 @@ module.exports = {
     },
     VerifyOtp: async (req, res) => {
         try {
-            const { email, otp } = req.body || {}
-            if (!email || !otp) {
+            const { email, otp, ip } = req.body || {}
+            if (!email || !otp || !ip) {
                 return HandleError(res, "All fields are required")
             }
             //check if user already exists
@@ -121,7 +121,7 @@ module.exports = {
 
             if (otpMatched) {
                 // Generate JWT token and send to user
-                const token = jwt.sign({ id: findUser._id, email: findUser.email, type: findUser.type }, process.env.JWT_SECRET, { expiresIn: "2h" })
+                const token = jwt.sign({ id: findUser._id, email: findUser.email, type: findUser.type, ip }, process.env.JWT_SECRET, { expiresIn: "2h" })
                 HandleSuccess(res, { token }, "Success")
             } else {
                 HandleError(res, "Invalid OTP.")
