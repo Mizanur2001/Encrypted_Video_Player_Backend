@@ -121,7 +121,7 @@ module.exports = {
 
             if (otpMatched) {
                 // Generate JWT token and send to user
-                const token = jwt.sign({ id: findUser._id, email: findUser.email, type: findUser.type, ip }, process.env.JWT_SECRET, { expiresIn: "2h" })
+                const token = jwt.sign({ id: findUser._id, email: findUser.email, type: findUser.type, ip }, process.env.JWT_SECRET, { expiresIn: "24h" })
                 HandleSuccess(res, { token }, "Success")
             } else {
                 HandleError(res, "Invalid OTP.")
