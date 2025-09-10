@@ -68,6 +68,9 @@ module.exports = {
                 return file.endsWith(".mp4") || file.endsWith(".mkv") || file.endsWith(".mov");
             });
 
+            const thumbDir = path.join(__dirname, "../private/thumbnails");
+            if (!fs.existsSync(thumbDir)) fs.mkdirSync(thumbDir, { recursive: true });
+
             let videoInfos = [];
 
             for (const file of files) {
@@ -77,20 +80,28 @@ module.exports = {
                     ffmpeg.ffprobe(videoPath, (err, metadata) => {
                         if (err) return reject(err);
 
+                        const tags = (metadata && metadata.format && metadata.format.tags) ? metadata.format.tags : {};
+                        const id = path.parse(file).name;
+                        const title = tags.title || id;
+                        const description = tags.description || tags.comment || "";
+
                         // generate thumbnail
-                        const thumbPath = path.join(__dirname, "../private/thumbnails", `${file}.png`);
+                        const thumbPath = path.join(thumbDir, `${file}.png`);
                         ffmpeg(videoPath)
                             .on("end", () => {
                                 resolve({
+                                    id,
+                                    title,
+                                    description,
                                     videoPath: file,
-                                    duration: metadata.format.duration.toFixed(2), // seconds
-                                    thumbnail: `/private/thumbnails/${file}.png`,  // public URL if served
+                                    duration: metadata && metadata.format && metadata.format.duration ? parseFloat(metadata.format.duration).toFixed(2) : "0.00",
+                                    thumbnail: `/private/thumbnails/${file}.png`,
                                 });
                             })
                             .on("error", reject)
                             .screenshots({
                                 count: 1,
-                                folder: path.join(__dirname, "../private/thumbnails"),
+                                folder: thumbDir,
                                 filename: `${file}.png`,
                                 size: "320x240",
                             });
