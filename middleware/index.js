@@ -41,7 +41,7 @@ const VerifyToken = (req, res, next) => {
             });
 
             if (data.ip !== clientIp) {
-                console.warn(`IP mismatch: You accessed it with different Device or network`);
+                console.warn(`IP mismatch: You accessed it with different Device or network. Token IP: ${data.ip}, Request IP: ${clientIp}`);
                 return UnauthorizedError(res);
             }
             req.user = data;
