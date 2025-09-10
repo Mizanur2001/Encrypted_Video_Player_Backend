@@ -10,7 +10,8 @@ const VerifyToken = (req, res, next) => {
             return UnauthorizedError(res);
         }
 
-        const clientIp = req.headers['x-forwarded-for'];
+        const clientIpHeader = req.headers['x-forwarded-for'];
+        const clientIp = clientIpHeader ? clientIpHeader.split(",")[0].trim() : null;
         if (!clientIp) {
             return UnauthorizedError(res);
         }
