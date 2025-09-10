@@ -120,6 +120,8 @@ module.exports = {
             }
 
             if (otpMatched) {
+                //delete all otp for the email
+                await Otp.deleteMany({ email: email.toLowerCase().trim() })
                 // Generate JWT token and send to user
                 const token = jwt.sign({ id: findUser._id, email: findUser.email, type: findUser.type, ip }, process.env.JWT_SECRET, { expiresIn: "24h" })
                 HandleSuccess(res, { token }, "Success")
