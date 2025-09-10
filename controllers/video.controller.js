@@ -6,16 +6,57 @@ const ffprobe = require("ffprobe-static");
 const { HandleServerError, HandleError, HandleSuccess } = require("./Base.controller");
 const VIDEO_DIR = path.join(__dirname, "../private");
 
-// AES Key + IV
-// (must be securely generated, stored in env, and shared with frontend securely)
-const ENCRYPTION_KEY = Buffer.from(process.env.VIDEO_KEY, "hex"); // 32 bytes
-const IV = Buffer.from(process.env.VIDEO_IV, "hex"); // 16 bytes
+
+const ENCRYPTION_KEY = process.env.VIDEO_KEY ? Buffer.from(process.env.VIDEO_KEY, "hex") : null; // 32 bytes
+const IV = process.env.VIDEO_IV ? Buffer.from(process.env.VIDEO_IV, "hex") : null; // 16 bytes
+
+// Validate env lengths at startup (fail early if misconfigured)
+if (process.env.VIDEO_KEY && (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32)) {
+    console.error("VIDEO_KEY environment variable is present but not 32 bytes (hex). Exiting.");
+    process.exit(1);
+}
+if (process.env.VIDEO_IV && (!IV || IV.length !== 16)) {
+    console.error("VIDEO_IV environment variable is present but not 16 bytes (hex). Exiting.");
+    process.exit(1);
+}
+
+// Helper: add block index to IV (big-endian) to derive per-range counter
+function deriveCounterIV(baseIv, blockIndex) {
+    if (!Buffer.isBuffer(baseIv)) throw new Error("IV must be a Buffer");
+    const ctr = Buffer.from(baseIv); // copy
+    let carry = BigInt(blockIndex);
+    for (let i = ctr.length - 1; i >= 0 && carry > 0n; i--) {
+        const sum = BigInt(ctr[i]) + (carry & 0xffn);
+        ctr[i] = Number(sum & 0xffn);
+        carry = (carry >> 8n) + (sum >> 8n);
+    }
+    return ctr;
+}
+
+function setCorsHeaders(res) {
+    // Allow Authorization header and preflight; expose range headers used by clients
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization,Content-Type,Range");
+    res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Range,Accept-Ranges,Content-Length,Content-Type");
+}
 
 module.exports = {
     sendVideo: async (req, res) => {
         try {
+            // Handle CORS preflight
+            setCorsHeaders(res);
+            if (req.method === "OPTIONS") {
+                res.writeHead(204);
+                return res.end();
+            }
+
             const videoId = req.params.id;
             const videoPath = path.join(VIDEO_DIR, videoId);
+
+            // Auth: require authenticated + authorized user to stream ranges
+            const user = req.user;
+            if (!user) return HandleError(res, "Authentication required");
 
             if (!fs.existsSync(videoPath)) {
                 return HandleError(res, "Video not found");
@@ -46,17 +87,62 @@ module.exports = {
 
             const contentLength = end - start + 1;
 
-            res.writeHead(206, {
+            const headers = {
                 "Content-Range": `bytes ${start}-${end}/${videoSize}`,
                 "Accept-Ranges": "bytes",
                 "Content-Length": contentLength,
                 "Content-Type": "video/mp4",
-            });
+            };
+            // Set headers and also ensure CORS headers already set above
+            Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
+            res.statusCode = 206;
 
             const stream = fs.createReadStream(videoPath, { start, end });
-            const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, IV);
 
+            if (!ENCRYPTION_KEY || !IV) {
+                // If no key configured, send raw stream (not recommended for production)
+                stream.pipe(res);
+                return;
+            }
+
+            // Use AES-256-CTR (stream-friendly) and derive counter from base IV + block index
+            // This avoids CBC padding issues for range requests.
+            const blockIndex = Math.floor(start / 16);
+            const counterIV = deriveCounterIV(IV, blockIndex);
+
+            const cipher = crypto.createCipheriv("aes-256-ctr", ENCRYPTION_KEY, counterIV);
+
+            // Pipe file-range -> cipher -> response
             stream.pipe(cipher).pipe(res);
+
+        } catch (error) {
+            return HandleServerError(req, res, error);
+        }
+    },
+    getVideoKey: async (req, res) => {
+        try {
+            // CORS / preflight
+            setCorsHeaders(res);
+            if (req.method === "OPTIONS") {
+                res.writeHead(204);
+                return res.end();
+            }
+
+            // Expect req.user to be populated by authentication middleware
+            const user = req.user;
+            if (!user) return HandleError(res, "Authentication required");
+
+            if (!ENCRYPTION_KEY || !IV) {
+                return HandleServerError(req, res, new Error("Server encryption key not configured"));
+            }
+
+            const encKeyBase64 = ENCRYPTION_KEY.toString("base64");
+            const ivBase64 = IV.toString("base64");
+
+            // Optionally issue a short-lived expiration timestamp (client should enforce)
+            const expiresAt = Date.now() + 60 * 1000; // 60 seconds from now
+
+            return HandleSuccess(res, { encKeyBase64, ivBase64, expiresAt }, "Key issued");
 
         } catch (error) {
             return HandleServerError(req, res, error);
