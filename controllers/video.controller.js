@@ -181,7 +181,7 @@ module.exports = {
                                     description,
                                     videoPath: file,
                                     duration: metadata && metadata.format && metadata.format.duration ? parseFloat(metadata.format.duration).toFixed(2) : "0.00",
-                                    thumbnail: `/private/thumbnails/${file}.png`,
+                                    thumbnail: `/thumbnails/${file}.png`,
                                 });
                             })
                             .on("error", reject)
