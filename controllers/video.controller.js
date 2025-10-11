@@ -62,9 +62,10 @@ module.exports = {
                 return HandleError(res, "Video not found");
             }
 
-            const range = req.headers.range;
+            let range = req.headers.range;
             if (!range) {
-                return HandleError(res, "Range header required");
+                // If no range header, default to first 1MB
+                range = "bytes=0-";
             }
 
             const videoSize = fs.statSync(videoPath).size;

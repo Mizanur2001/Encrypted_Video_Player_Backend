@@ -1,6 +1,6 @@
 {
   "name": "encrypted_video_player_backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "app.js",
   "scripts": {
     "start": "nodemon app.js",
