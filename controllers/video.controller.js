@@ -102,16 +102,23 @@ async function ensureThumbnail(videoPath, fileName) {
 
   // swallow errors so API doesn’t break if ffmpeg fails for one video
   try {
+    const THUMB_W = 320;
+    const THUMB_H = 240;
+
+    // Fill the thumbnail box without distortion:
+    // - keep aspect ratio
+    // - scale until it covers the box
+    // - crop center to exact size
+    const vf = `scale=${THUMB_W}:${THUMB_H}:force_original_aspect_ratio=increase,crop=${THUMB_W}:${THUMB_H},setsar=1`;
+
     await new Promise((resolve) => {
       ffmpeg(videoPath)
+        .seekInput(1) // grab a frame ~1s in (avoids black first frame in many videos)
+        .outputOptions(["-frames:v 1", "-vf", vf])
+        .output(thumbPath)
         .on("end", resolve)
         .on("error", resolve)
-        .screenshots({
-          count: 1,
-          folder: THUMB_DIR,
-          filename: thumbFile,
-          size: "320x240",
-        });
+        .run();
     });
   } catch (_) {}
 }
