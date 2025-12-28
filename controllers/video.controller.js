@@ -41,6 +41,81 @@ function setCorsHeaders(res) {
     res.setHeader("Access-Control-Expose-Headers", "Content-Range,Accept-Ranges,Content-Length,Content-Type");
 }
 
+// add near top (after requires)
+const fsp = fs.promises;
+const VIDEO_EXTS = new Set([".mp4", ".mkv", ".mov"]);
+const THUMB_DIR = path.join(__dirname, "../private/thumbnails");
+
+// ensure ffprobe-static is actually used
+ffmpeg.setFfprobePath(ffprobe.path);
+
+// simple concurrency limiter
+function createLimiter(max) {
+  let active = 0;
+  const queue = [];
+  const next = () => {
+    if (active >= max || queue.length === 0) return;
+    active++;
+    const { fn, resolve, reject } = queue.shift();
+    Promise.resolve()
+      .then(fn)
+      .then(resolve, reject)
+      .finally(() => {
+        active--;
+        next();
+      });
+  };
+  return (fn) =>
+    new Promise((resolve, reject) => {
+      queue.push({ fn, resolve, reject });
+      next();
+    });
+}
+
+const probeLimit = createLimiter(4);
+const thumbLimit = createLimiter(1);
+
+// in-memory cache: filename -> { key, info }
+const videoInfoCache = new Map();
+
+function ffprobeAsync(filePath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) return reject(err);
+      resolve(metadata);
+    });
+  });
+}
+
+async function ensureThumbnail(videoPath, fileName) {
+  await fsp.mkdir(THUMB_DIR, { recursive: true });
+
+  const thumbFile = `${fileName}.png`;
+  const thumbPath = path.join(THUMB_DIR, thumbFile);
+
+  try {
+    await fsp.access(thumbPath);
+    return; // already exists
+  } catch (_) {
+    // missing -> generate
+  }
+
+  // swallow errors so API doesn’t break if ffmpeg fails for one video
+  try {
+    await new Promise((resolve) => {
+      ffmpeg(videoPath)
+        .on("end", resolve)
+        .on("error", resolve)
+        .screenshots({
+          count: 1,
+          folder: THUMB_DIR,
+          filename: thumbFile,
+          size: "320x240",
+        });
+    });
+  } catch (_) {}
+}
+
 module.exports = {
     sendVideo: async (req, res) => {
         try {
@@ -151,56 +226,56 @@ module.exports = {
     },
     sendVideoInfo: async (req, res) => {
         try {
-            const files = fs.readdirSync(VIDEO_DIR).filter(file => {
-                return file.endsWith(".mp4") || file.endsWith(".mkv") || file.endsWith(".mov");
-            });
+            await fsp.mkdir(THUMB_DIR, { recursive: true });
 
-            const thumbDir = path.join(__dirname, "../private/thumbnails");
-            if (!fs.existsSync(thumbDir)) fs.mkdirSync(thumbDir, { recursive: true });
+            const dirents = await fsp.readdir(VIDEO_DIR, { withFileTypes: true });
+            const files = dirents
+              .filter((d) => d.isFile())
+              .map((d) => d.name)
+              .filter((name) => VIDEO_EXTS.has(path.extname(name).toLowerCase()));
 
-            let videoInfos = [];
+            const videos = await Promise.all(
+              files.map((file) =>
+                probeLimit(async () => {
+                  const videoPath = path.join(VIDEO_DIR, file);
+                  const stat = await fsp.stat(videoPath);
+                  const cacheKey = `${stat.size}:${stat.mtimeMs}`;
 
-            for (const file of files) {
-                const videoPath = path.join(VIDEO_DIR, file);
+                  const cached = videoInfoCache.get(file);
+                  if (cached && cached.key === cacheKey) return cached.info;
 
-                const info = await new Promise((resolve, reject) => {
-                    ffmpeg.ffprobe(videoPath, (err, metadata) => {
-                        if (err) return reject(err);
+                  // probe (but don’t fail the whole request if one file is bad)
+                  let metadata = null;
+                  try {
+                    metadata = await ffprobeAsync(videoPath);
+                  } catch (_) {}
 
-                        const tags = (metadata && metadata.format && metadata.format.tags) ? metadata.format.tags : {};
-                        const id = path.parse(file).name;
-                        const title = tags.title || id;
-                        const description = tags.description || tags.comment || "";
+                  const tags = metadata?.format?.tags || {};
+                  const id = path.parse(file).name;
 
-                        // generate thumbnail
-                        const thumbPath = path.join(thumbDir, `${file}.png`);
-                        ffmpeg(videoPath)
-                            .on("end", () => {
-                                resolve({
-                                    id,
-                                    title,
-                                    description,
-                                    videoPath: file,
-                                    duration: metadata && metadata.format && metadata.format.duration ? parseFloat(metadata.format.duration).toFixed(2) : "0.00",
-                                    thumbnail: `/thumbnails/${file}.png`,
-                                });
-                            })
-                            .on("error", reject)
-                            .screenshots({
-                                count: 1,
-                                folder: thumbDir,
-                                filename: `${file}.png`,
-                                size: "320x240",
-                            });
-                    });
-                });
+                  const info = {
+                    id,
+                    title: tags.title || id,
+                    description: tags.description || tags.comment || "",
+                    videoPath: file,
+                    duration: metadata?.format?.duration
+                      ? parseFloat(metadata.format.duration).toFixed(2)
+                      : "0.00",
+                    thumbnail: `/thumbnails/${file}.png`,
+                  };
 
-                videoInfos.push(info);
-            }
+                  // generate thumbnail in background (limited concurrency)
+                  thumbLimit(() => ensureThumbnail(videoPath, file)).catch(() => {});
 
-            HandleSuccess(res, { videos: videoInfos }, "Video info retrieved successfully");
-        } catch (error) {
+                  videoInfoCache.set(file, { key: cacheKey, info });
+                  return info;
+                })
+              )
+            );
+
+            return HandleSuccess(res, { videos }, "Video info retrieved successfully");
+          } catch (error) {
             return HandleServerError(req, res, error);
-        }
+          }
     }
 };
